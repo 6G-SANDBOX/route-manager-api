@@ -30,7 +30,6 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - **Persistence:** Store scheduled routes in a SQLite database to ensure they are reloaded after service restarts.
 - **systemd Service:** Integrate with systemd to run the API as a system service.
 - **Logging:** Detailed logging of operations and errors for monitoring and debugging.
-- **Testing:** Automated tests using `pytest` to validate key functionalities.
 - **OpenAPI Documentation:** An `openapi.yaml` file describing the API specifications.
 
 ## Prerequisites
