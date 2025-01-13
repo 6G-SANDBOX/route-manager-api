@@ -1,6 +1,7 @@
 # app/routers/routes.py
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
+from datetime import UTC
 from app.schemas import Route
 from app.models import RouteModel
 from app.database import SessionLocal
@@ -18,13 +19,16 @@ def get_routes():
     logger.info("Fetching active routes")
     command = "ip route show"
     output = run_command(command)
-    return {"routes": output.splitlines()}
+    return {"routes": [s.strip() for s in output.splitlines()]}
 
 @router.post("/routes", dependencies=[Depends(auth)])
 def schedule_route(route: Route):
     db = SessionLocal()
     try:
-        now = datetime.now()
+        if route.create_at and route.create_at.tzinfo:
+            now = datetime.now(UTC)
+        else:
+            now = datetime.now()
         logger.info(f"Scheduling route: {route}")
 
         if route_exists(route.destination, route.gateway, route.interface):
