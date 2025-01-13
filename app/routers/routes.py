@@ -19,7 +19,7 @@ def get_routes():
     logger.info("Fetching active routes")
     command = "ip route show"
     output = run_command(command)
-    return {"routes": output.splitlines()}
+    return {"routes": [s.strip() for s in output.splitlines()]}
 
 @router.post("/routes", dependencies=[Depends(auth)])
 def schedule_route(route: Route):
