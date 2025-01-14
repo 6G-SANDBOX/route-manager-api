@@ -37,8 +37,8 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 ```
 route-manager-api/
 ├── .devcontainer/           # (Optional) Configuration for devcontainers.
-├── app/
-│   ├── __init__.py
+├── app/                     # Contains the main application files.
+│   ├── __init__.py          # Makes "app" a "Python package"
 │   ├── core/                # Configurations and global logic.
 │   │   ├── __init__.py
 │   │   ├── config.py        # Global configuration of the application
@@ -47,25 +47,25 @@ route-manager-api/
 │   ├── db/                  # Database settings
 │   │   ├── __init__.py
 │   │   ├── database.py      # SQLAlchemy configuration
-│   │   └── models/          # Database models organized by entity
+│   │   └── models/          # Contains database model modules
 │   │       ├── __init__.py
-│   │       └── routes.py    # Model for routes
-│   ├── routers/             # Routes organized by entity
+│   │       └── routes.py    # Defines database models for Routes
+│   ├── routers/             # Contains router modules
 │   │   ├── __init__.py
-│   │   └── routes.py        # Available endpoints in the API
-│   ├── schemas/             # Validation schemes (Pydantic)
+│   │   └── routes.py        # Defines endpoints related to Routes
+│   ├── schemas/             # Contains Pydantic schema modules
 │   │   ├── __init__.py
-│   │   └── routes.py        # Schema for Routes endpoints
+│   │   └── routes.py        # Defines schemas for Routes
 │   ├── services/            # Checkout logic and auxiliary services
 │   │   ├── __init__.py
 │   │   ├── auth.py          # Functions related to user authentication and authorization
 │   │   ├── routes.py        # Auxiliary functions for the API endpoints
 │   │   └── utils.py         # General auxiliary functions
-│   ├── tests/               # (Not yet implemented) Functionality tests
+│   ├── tests/               # (Not yet implemented) Contains test modules
 │   │   ├── __init__.py
-│   │   └─── test_routes.py  # (Not yet implemented) Endpoint tests
+│   │   └─── test_routes.py  # (Not yet implemented) Tests for the Routes module
 │   ├── __init__.py
-│   └── main.py              # Main entry point of the application.
+│   └── main.py              # Initializes the FastAPI application.
 ├── .env                     # (Optional) Default configuration values
 ├── .gitignore
 ├── .python-version

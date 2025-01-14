@@ -23,7 +23,8 @@
         "vscode": {
             "extensions": [
 				"tamasfe.even-better-toml",
-				"qwtel.sqlite-viewer"
+				"qwtel.sqlite-viewer",
+				"shd101wyy.markdown-preview-enhanced"
             ]
         }
     },
