@@ -1,119 +1,69 @@
 # app/routers/routes.py
-from fastapi import APIRouter, Depends, HTTPException
-from datetime import datetime
-from datetime import UTC
-from app.schemas import Route
-from app.models import RouteModel
-from app.database import SessionLocal
-from app.auth import auth
-from app.utils import run_command, route_exists
-from app.scheduler import add_job
 import logging
+from typing import Dict, List
+from fastapi import APIRouter, Depends, HTTPException
+from app.schemas.routes import Route
+from app.services.routes import (
+    get_active_routes,
+    schedule_add_route,
+    delete_route
+)
+from app.services.auth import auth
+
 
 logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/routes", tags=["routes"])
 
-router = APIRouter()
 
-@router.get("/routes", dependencies=[Depends(auth)])
-def get_routes():
+@router.get("/", dependencies=[Depends(auth)])
+def routes_get() -> Dict[str, List[str]]:
+    """
+    Fetches all active routes.
+
+    Returns:
+        Dict[str, list[str]]: A Diccionary with key word "routes" and a list of active routes as value
+    """
     logger.info("Fetching active routes")
-    command = "ip route show"
-    output = run_command(command)
-    return {"routes": [s.strip() for s in output.splitlines()]}
+    return get_active_routes()
 
-@router.post("/routes", dependencies=[Depends(auth)])
-def schedule_route(route: Route):
-    db = SessionLocal()
+
+@router.post("/", dependencies=[Depends(auth)])
+def routes_post(route: Route) -> Dict[str, str]:
+    """
+    Schedules a new route to be added.
+
+    Args:
+        route (Route): The route to schedule
+
+    Returns:
+        dict[str, str]: Success message indicating the route was scheduled.
+    """
     try:
-        if route.create_at and route.create_at.tzinfo:
-            now = datetime.now(UTC)
-        else:
-            now = datetime.now()
-        logger.info(f"Scheduling route: {route}")
-
-        if route_exists(route.destination, route.gateway, route.interface):
-            logger.warning(f"Route already exists: {route}")
-            raise HTTPException(status_code=400, detail="Route already exists")
-
-        if route.create_at and (route.create_at > now):
-            add_job(add_route, 'date', run_date=route.create_at, args=[route])
-        else:
-            add_route(route)
-
-        if route.delete_at and (route.delete_at > now):
-            add_job(delete_route, 'date', run_date=route.delete_at, args=[route])
-
-        # Guardar en la base de datos
-        db_route = RouteModel(
-            id=f"{route.destination}_{route.gateway}_{route.interface}",
-            destination=route.destination,
-            gateway=route.gateway,
-            interface=route.interface,
-            create_at=route.create_at,
-            delete_at=route.delete_at,
-        )
-        db.add(db_route)
-        db.commit()
-        db.refresh(db_route)
-
-        return {"message": "Route scheduled successfully"}
+        schedule_add_route(route)
+        return {"message": "Route successfully added or scheduled"}
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error scheduling route: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-    finally:
-        db.close()
+    
 
-@router.delete("/routes", dependencies=[Depends(auth)])
-def remove_scheduled_route(route: Route):
-    db = SessionLocal()
+@router.delete("/", dependencies=[Depends(auth)])
+def routes_delete(route: Route) -> Dict[str, str]:
+    """
+    Removes an existing route.
+
+    Args:
+        route (Route): The route to remove.
+
+    Returns:
+        dict[str, str]: A success message indicating the route was removed.
+    """
     try:
-        logger.info(f"Removing scheduled route: {route}")
-
-        if not route_exists(route.destination, route.gateway, route.interface):
-            logger.warning(f"Route not found: {route}")
-            raise HTTPException(status_code=404, detail="Route not found")
-
         delete_route(route)
-
-        # Remover de la base de datos
-        db_route = db.query(RouteModel).filter(
-            RouteModel.destination == route.destination,
-            RouteModel.gateway == route.gateway,
-            RouteModel.interface == route.interface
-        ).first()
-        if db_route:
-            db.delete(db_route)
-            db.commit()
-        else:
-            logger.warning(f"Route not found in database: {route}")
-
         return {"message": "Route deleted and removed from schedule"}
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        logger.error(f"Error removing route: {e}")
+        logger.error(f"Error deleting route: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-    finally:
-        db.close()
-
-def add_route(route: Route):
-    from app.utils import run_command  # Evitar importaciones circulares
-    logger = logging.getLogger(__name__)
-    logger.info(f"Adding route: {route}")
-    command = f"ip route add {route.destination}"
-    if route.gateway:
-        command += f" via {route.gateway}"
-    if route.interface:
-        command += f" dev {route.interface}"
-    run_command(command)
-    logger.info("Route added successfully")
-
-def delete_route(route: Route):
-    from app.utils import run_command  # Evitar importaciones circulares
-    logger = logging.getLogger(__name__)
-    logger.info(f"Deleting route: {route}")
-    command = f"ip route del {route.destination}"
-    if route.gateway:
-        command += f" via {route.gateway}"
-    if route.interface:
-        command += f" dev {route.interface}"
-    run_command(command)
-    logger.info("Route deleted successfully")

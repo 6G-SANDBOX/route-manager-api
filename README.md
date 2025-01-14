@@ -5,6 +5,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 ## Table of Contents
 
 - [Features](#features)
+- [Repository Layout](#repository-layout)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [1. Clone the Repository](#1-clone-the-repository)
@@ -32,6 +33,49 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - **Logging:** Detailed logging of operations and errors for monitoring and debugging.
 - **OpenAPI Documentation:** An `openapi.yaml` file describing the API specifications.
 
+## Repository Layout
+```
+route-manager-api/
+├── .devcontainer/           # (Optional) Configuration for devcontainers.
+├── app/
+│   ├── __init__.py
+│   ├── core/                # Configurations and global logic.
+│   │   ├── __init__.py
+│   │   ├── config.py        # Global configuration of the application
+│   │   ├── logging.py       # (Not yet implemented) Logging configuration
+│   │   └── scheduler.py     # Task scheduler functions and configuration
+│   ├── db/                  # Database settings
+│   │   ├── __init__.py
+│   │   ├── database.py      # SQLAlchemy configuration
+│   │   └── models/          # Database models organized by entity
+│   │       ├── __init__.py
+│   │       └── routes.py    # Model for routes
+│   ├── routers/             # Routes organized by entity
+│   │   ├── __init__.py
+│   │   └── routes.py        # Available endpoints in the API
+│   ├── schemas/             # Validation schemes (Pydantic)
+│   │   ├── __init__.py
+│   │   └── routes.py        # Schema for Routes endpoints
+│   ├── services/            # Checkout logic and auxiliary services
+│   │   ├── __init__.py
+│   │   ├── auth.py          # Functions related to user authentication and authorization
+│   │   ├── routes.py        # Auxiliary functions for the API endpoints
+│   │   └── utils.py         # General auxiliary functions
+│   ├── tests/               # (Not yet implemented) Functionality tests
+│   │   ├── __init__.py
+│   │   └─── test_routes.py  # (Not yet implemented) Endpoint tests
+│   ├── __init__.py
+│   └── main.py              # Main entry point of the application.
+├── .env                     # (Optional) Default configuration values
+├── .gitignore
+├── .python-version
+├── LICENSE
+├── pyproject.toml
+├── README.md
+└── uv.lock
+
+```
+
 ## Prerequisites
 
 - **Operating System:** Linux
@@ -54,6 +98,8 @@ cd route-manager-api
 It's recommended to use a virtual environment to manage the project's dependencies.
 
 ```bash
+uv run -m app.main
+
 python3 -m venv routemgr
 source routemgr/bin/activate
 ```

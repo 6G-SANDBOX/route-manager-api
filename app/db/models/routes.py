@@ -1,6 +1,6 @@
-# app/models.py
+# app/db/models/routes.py
 from sqlalchemy import Column, String, DateTime
-from app.database import Base
+from app.db.database import Base
 
 class RouteModel(Base):
     __tablename__ = "routes"
