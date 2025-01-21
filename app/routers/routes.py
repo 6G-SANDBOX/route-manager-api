@@ -12,10 +12,10 @@ from app.services.auth import auth
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/routes", tags=["routes"])
+routes = APIRouter(prefix="/routes", tags=["routes"])
 
 
-@router.get("/", dependencies=[Depends(auth)])
+@routes.get("/", dependencies=[Depends(auth)])
 def routes_get() -> Dict[str, List[str]]:
     """
     Fetches all active routes.
@@ -27,7 +27,7 @@ def routes_get() -> Dict[str, List[str]]:
     return get_active_routes()
 
 
-@router.post("/", dependencies=[Depends(auth)])
+@routes.post("/", dependencies=[Depends(auth)])
 def routes_post(route: Route) -> Dict[str, str]:
     """
     Schedules a new route to be added.
@@ -48,7 +48,7 @@ def routes_post(route: Route) -> Dict[str, str]:
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
 
-@router.delete("/", dependencies=[Depends(auth)])
+@routes.delete("/", dependencies=[Depends(auth)])
 def routes_delete(route: Route) -> Dict[str, str]:
     """
     Removes an existing route.

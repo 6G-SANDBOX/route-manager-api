@@ -14,7 +14,7 @@ class TokenAuth(HTTPBearer):
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super(TokenAuth, self).__call__(request)
         if credentials:
-            if credentials.credentials != settings.apitoken:
+            if credentials.credentials != settings.APITOKEN:
                 logger.warning("Invalid or expired token")
                 raise HTTPException(status_code=403, detail="Invalid or expired token")
             return credentials.credentials

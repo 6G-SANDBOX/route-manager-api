@@ -6,7 +6,6 @@ import subprocess
 from fastapi import HTTPException
 from app.schemas.routes import Route
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,17 +56,21 @@ def run_command(command: str) -> str:
     try:
         result = subprocess.run(
             command,
-            shell=True,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            shell=True,  # Ensures the command runs in the shell
+            check=True,  # Raises an error if the command fails
+            stdout=subprocess.PIPE,  # Captures standard output
+            stderr=subprocess.PIPE   # Captures standard error
         )
-        output: str = result.stdout.decode('utf-8')
-        logger.info(f"Command output: {output}")
-        return output
+        stdout: str = result.stdout.decode('utf-8').strip()
+        logger.info(f"Command output: {stdout}")
+        return stdout
     except subprocess.CalledProcessError as e:
-        logger.error(f"Command failed: {e.stderr.decode('utf-8')}")
-        raise HTTPException(status_code=500, detail=f"Command failed: {e.stderr.decode('utf-8')}")
+        stderr: str = e.stderr.decode('utf-8').strip()
+        logger.error(f"Command failed. Error: {stderr}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Command failed. Error: {stderr}"
+        )
 
 
 def route_exists(destination: str, gateway: str = None, interface: str = None) -> bool:

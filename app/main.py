@@ -30,18 +30,7 @@ def configure_app(app: FastAPI) -> None:
     load_stored_routes()
 
     # Load application endpoints
-    app.include_router(routes.router)
+    app.include_router(routes.routes)
 
 
 configure_app(app)
-
-
-if __name__ == "__main__":
-    logger.info("Starting Route Manager service")
-
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=settings.port,
-        reload=True
-    )
