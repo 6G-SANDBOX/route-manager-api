@@ -116,7 +116,6 @@ pip install -r requirements.txt
 
 ```plaintext
 fastapi==0.112.2
-uvicorn==0.30.6
 pydantic==2.8.2
 apscheduler==3.10.4
 SQLAlchemy==2.0.32
