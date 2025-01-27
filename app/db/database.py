@@ -1,11 +1,13 @@
-# app/database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+# app/db/database.py
+from sqlmodel import SQLModel, create_engine
+from app.db.models.routes import DBRoute
 from app.core.config import settings
 
-# Base Class for models
-Base = declarative_base()
-# Database connection
+
 engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
-# Database session
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def create_db_and_tables() -> None:
+    """
+    Create SQLite file and tables
+    """
+    SQLModel.metadata.create_all(engine)

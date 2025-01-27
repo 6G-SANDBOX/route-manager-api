@@ -1,69 +1,109 @@
 # app/routers/routes.py
 import logging
-from typing import Dict, List
-from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.routes import Route
-from app.services.routes import (
-    get_active_routes,
-    schedule_add_route,
-    delete_route
-)
-from app.services.auth import auth
-
+import subprocess
+from typing import Annotated
+from fastapi import APIRouter, Body, Depends, HTTPException
+from app.services.auth import bearer_token
+from datetime import datetime, timezone
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+from pydantic import IPvAnyNetwork
+from app.schemas.routes  import Route
+from app.services.routes import add_route_to_system, delete_route_from_system
+from app.db.routes        import get_routes_from_database, add_route_to_database, delete_route_from_database
+from app.services.utils  import run_command
 
 logger = logging.getLogger(__name__)
 routes = APIRouter(prefix="/routes", tags=["routes"])
 
 
-@routes.get("/", dependencies=[Depends(auth)])
-def routes_get() -> Dict[str, List[str]]:
+@routes.get("/", dependencies=[Depends(bearer_token)])
+def routes_get() -> dict[str, list[str]]:
     """
-    Fetches all active routes.
+    Fetches all active routes using the `ip route show` command.
 
     Returns:
-        Dict[str, list[str]]: A Diccionary with key word "routes" and a list of active routes as value
+        `dict[str, list[str]]`: A Diccionary with key word "routes" and a list of active routes as value
     """
-    logger.info("Fetching active routes")
-    return get_active_routes()
-
-
-@routes.post("/", dependencies=[Depends(auth)])
-def routes_post(route: Route) -> Dict[str, str]:
-    """
-    Schedules a new route to be added.
-
-    Args:
-        route (Route): The route to schedule
-
-    Returns:
-        dict[str, str]: Success message indicating the route was scheduled.
-    """
+    logger.info("Received GET request")
     try:
-        schedule_add_route(route)
-        return {"message": "Route successfully added or scheduled"}
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Error scheduling route: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-    
+        database_routes: list[dict] = get_routes_from_database()
+    except:
+        raise HTTPException(status_code=500, detail="Error fetching routes from database")
+    else:
+        try:
+            system_routes: str = run_command(["ip", "route", "show"])
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
+        
+    return {
+        "database_routes": [str(d) for d in database_routes],
+        "system_routes": [s.strip() for s in system_routes.splitlines()]
+    }
 
-@routes.delete("/", dependencies=[Depends(auth)])
-def routes_delete(route: Route) -> Dict[str, str]:
+
+@routes.post("/", dependencies=[Depends(bearer_token)])
+def routes_post(route: Route) -> dict[str, str]:
     """
-    Removes an existing route.
+    Schedules a new route to be added to the system and the database
 
     Args:
-        route (Route): The route to remove.
+        `route (Route)`: A Route object containing to, via, dev, create_at, and delete_at.
+
+    Returns:
+       `dict[str, str]`: Success message indicating the route was scheduled.
+    """
+    logger.info("Received POST request")
+
+    if route.create_at > datetime.now(timezone.utc):
+        try:
+            add_route_to_database(route, active=False)
+        except IntegrityError:
+            logger.warning(f"Route to {route.to} already exists in the database.")
+            raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the database.")
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while adding route: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error while adding route: {str(e)}")
+    else:
+        try:
+            add_route_to_system(route)
+            add_route_to_database(route, active=True)
+        except subprocess.CalledProcessError as e:
+            if "RTNETLINK answers: File exists" in e.stderr.strip():
+                raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the system.")
+            raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
+
+    return {"message": "Route succesfully added or scheduled"}
+
+
+@routes.delete("/", dependencies=[Depends(bearer_token)])
+def routes_delete(to: Annotated[IPvAnyNetwork, Body(embed=True)]) -> dict[str, str]:
+    """
+    Removes an existing route from the system and the database
+
+    Args:
+        to (IPvAnyNetwork): The destination IP Address/Network of the route to remove.
 
     Returns:
         dict[str, str]: A success message indicating the route was removed.
     """
+    logger.info("Received DELETE request")
     try:
-        delete_route(route)
-        return {"message": "Route deleted and removed from schedule"}
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Error deleting route: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        active: bool = delete_route_from_database(str(to))
+    except NoResultFound:
+        logger.warning(f"Route to {to} not found in the database.")
+        raise HTTPException(status_code=404, detail=f"Route to {to} not found in the database.")
+    except MultipleResultsFound:
+        logger.warning(f"More than one to {to} exists in the database. Please remove one manually.")
+        raise HTTPException(status_code=409, detail=f"More than one to {to} exists in the database. Please remove one manually.")
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while deleting route: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error while deleting route: {str(e)}")
+    else:
+        if active:
+            try:
+                delete_route_from_system(str(to))
+            except subprocess.CalledProcessError as e:
+                raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
+
+    return {"message": "Route succesfully deleted"}

@@ -19,7 +19,6 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - [API Documentation](#api-documentation)
 - [Logging](#logging)
 - [Security Considerations](#security-considerations)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Features
@@ -31,7 +30,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - **Persistence:** Store scheduled routes in a SQLite database to ensure they are reloaded after service restarts.
 - **systemd Service:** Integrate with systemd to run the API as a system service.
 - **Logging:** Detailed logging of operations and errors for monitoring and debugging.
-- **OpenAPI Documentation:** An `openapi.yaml` file describing the API specifications.
+
 
 ## Repository Layout
 ```
@@ -79,8 +78,8 @@ route-manager-api/
 ## Prerequisites
 
 - **Operating System:** Linux
-- **Python:** Version 3.7 or higher
-- **Permissions:** Superuser permissions to manage network routes and configure systemd services.
+- **Python:** Version 3.12 or higher
+- **Permissions:** Superuser permissions to manage network routes (capability `NET_ADMIN`) and to configure `systemd` services
 
 ## Installation
 
@@ -93,32 +92,36 @@ git https://github.com/6G-SANDBOX/route-manager-api
 cd route-manager-api
 ```
 
-### 2. Create and Activate a Virtual Environment
+### 2. Install uv
 
-It's recommended to use a virtual environment to manage the project's dependencies.
+The tool `uv` will take care for everything python-releated, from python versions, to virtual enviroments and dependencies.
+
 
 ```bash
-uv run -m app.main
-
-python3 -m venv routemgr
-source routemgr/bin/activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### 3. Install Dependencies
 
-Install all necessary dependencies using the `requirements.txt` file:
+Install all necessary dependencies in a virtual environment as specified in the `pyproject.toml` file
 
 ```bash
-pip install -r requirements.txt
+uv sync
+
+uv run fastapi run --port 8172  # Default port is 8000
 ```
 
-**Contents of `requirements.txt`:**
+**Current dependencies:**
 
-```plaintext
-fastapi==0.112.2
-pydantic==2.8.2
-apscheduler==3.10.4
-SQLAlchemy==2.0.32
+```toml
+dependencies = [
+    "apscheduler>=3.11.0",
+    "fastapi[standard]>=0.112.2",
+    "httptools>=0.6.4", # Faster than Python's default asyncio HTTP parser
+    "psutil>=6.1.1",
+    "pydantic-settings>=2.7.1",
+    "sqlalchemy>=2.0.37",
+    "uvloop>=0.21.0", # Faster than Python's default asyncio event loop
 ```
 
 ### 4. Configure the Database
@@ -216,9 +219,9 @@ curl -X POST "http://localhost:8172/routes" \
 -H "Authorization: Bearer this_is_something_secret" \
 -H "Content-Type: application/json" \
 -d '{
-  "destination": "192.168.20.0/24",
-  "gateway": "192.168.2.1",
-  "interface": "eth0",
+  "to": "192.168.20.0/24",
+  "via": "192.168.2.1",
+  "dev": "eth0",
   "create_at": "2024-10-10T12:00:00",
   "delete_at": "2024-10-10T18:00:00"
 }'
@@ -239,9 +242,9 @@ curl -X DELETE "http://localhost:8172/routes" \
 -H "Authorization: Bearer this_is_something_secret" \
 -H "Content-Type: application/json" \
 -d '{
-  "destination": "192.168.2.0/24",
-  "gateway": "192.168.2.1",
-  "interface": "eth0"
+  "to": "192.168.2.0/24",
+  "via": "192.168.2.1",
+  "dev": "eth0"
 }'
 ```
 
@@ -268,11 +271,6 @@ FastAPI automatically generates interactive API documentation accessible at:
 - **Swagger UI:** [http://localhost:8172/docs](http://localhost:8172/docs)
 - **Redoc:** [http://localhost:8172/redoc](http://localhost:8172/redoc)
 
-Additionally, an `openapi.yaml` file is provided that describes the OpenAPI specification of the API.
-
-### **Using Swagger UI**
-
-Open your browser and visit [http://localhost:8000/8172](http://localhost:8172/docs) to interact with the API through the Swagger UI interface.
 
 ## Logging
 
@@ -286,7 +284,7 @@ The application logs detailed information about its operations and errors using 
 
 ### **Log File Location**
 
-By default, logs are displayed in the console where the service is running. To redirect logs to a file, modify the logging configuration in `main.py`:
+By default, logs are displayed in the console where the service is running. To redirect logs to a file, modify the logging configuration in `app/core/logging.py`:
 
 ```python
 logging.basicConfig(
@@ -295,6 +293,17 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 ```
+
+## Future development
+Currently, the integration of the following `ip route` subcommands:
+- `metric`
+- `table`
+- `scope`
+- `proto`
+- `src`
+- `nexthop`
+- `onlink`
+is not an urgent task, but the tool may be expanded to include them
 
 ## Security Considerations
 

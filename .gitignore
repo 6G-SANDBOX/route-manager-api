@@ -166,4 +166,4 @@ cython_debug/
 routes.db
 
 # drawio metadata
-.$*
+.$app_flow*

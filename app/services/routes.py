@@ -1,200 +1,83 @@
 # app/services/routes.py
 import logging
-from typing import Dict, List, Union
+import subprocess
 from fastapi import HTTPException
-from datetime import datetime, UTC
-from sqlalchemy.orm import Session
-from app.services.utils import validate_route, run_command, route_exists
 from app.schemas.routes import Route
-from app.db.database import SessionLocal
-from app.db.models.routes import RouteModel
-from app.db.routes import add_route_to_database, delete_route_from_database
-from app.core.scheduler import add_job
+from app.services.utils  import run_command
 
 logger = logging.getLogger(__name__)
 
 
-def load_stored_routes() -> None:
-    """
-    Load active routes from the database and applies them to the system.
-    """
-    logger.info("Loading active routes from database")
-    db: Session = SessionLocal()
-    try:
-        now = datetime.now()
-        stored_routes = db.query(RouteModel).all()
+# def load_stored_routes_to_system() -> None:
+#     """
+#     Load active routes from the database and applies them to the system.
+#     """
+#     logger.info("Loading active routes from database")
+#     try:
+#         database_routes: list = get_routes_from_database()
+#     db: Session = SessionLocal()
+#     try:
+#         now = datetime.now(datetime.timezone.utc)
+#         stored_routes = db.query(DBRoute).all()
 
-        for db_route in stored_routes:
-            try:
-                route = Route.model_validate(db_route)
+#         for db_route in stored_routes:
+#             try:
+#                 route = Route.model_validate(db_route)
 
-                if route.delete_at and route.delete_at < now:
-                    delete_route(route)
-                    break
-                else:
-                    schedule_add_route(route)
+#                 if route.delete_at and route.delete_at < now:
+#                     delete_route(route)
+#                     break
+#                 else:
+#                     add_route(route)
 
-            except Exception as e:
-                logger.error(f"Error processing route {db_route}: {e}")
+#             except Exception as e:
+#                 logger.error(f"Error processing route {db_route}: {e}")
 
-    except Exception as e:
-        logger.error(f"Error loading routes from database: {e}")
-    finally:
-        db.close()
-
-
-def get_active_routes() -> Dict[str, List[str]]:
-    """
-    Fetches all active routes.
-
-    Returns:
-        Dict[str, List[str]]: A Diccionary with key word "routes" and a list of active routes as value
-    """
-    command: str = "ip route show"
-    output: str = run_command(command)
-    return {"routes": [s.strip() for s in output.splitlines()]}
+#     except Exception as e:
+#         logger.error(f"Error loading routes from database: {e}")
+#     finally:
+#         db.close()
 
 
-def schedule_add_route(route: Route) -> Union[None, HTTPException]:
-    """
-    Schedules a new route to be added, with optional creation and deletion times.
-
-    Args:
-        route (Route): The route to schedule
-
-    Returns:
-        HTTPException: If the route already exists or if there is an error during scheduling.
-    """
-    validate_route(route)
-    now = datetime.now(UTC) if route.create_at and route.create_at.tzinfo else datetime.now()
-
-    if route.delete_at and route.delete_at <= now:
-        raise HTTPException(status_code=409, detail="Route delete_at timestamp has already passed")
-    elif route_exists(route.destination, route.gateway, route.interface):
-        raise HTTPException(status_code=409, detail="Route already exists")
-
-    logger.info(f"Scheduling addition of route: {route}")
-
-    if route.create_at and (route.create_at > now):
-        logger.info(f"Scheduling addition of route {route} at {route.create_at}")
-        add_job(add_route, 'date', run_date=route.create_at, args=[route])
-    else:
-        add_route(route)
-
-    if route.delete_at:
-        logger.info(f"Scheduling deletion of route {route} at {route.delete_at}")
-        add_job(delete_route, 'date', run_date=route.delete_at, args=[route])
-
-
-def add_route(route: Route) -> bool:
-    """
-    Adds a route to the system and the database
-
-    Args:
-        route (Route): A Route object containing destination, gateway, interface, create_at, and delete_at.
-    
-    Returns:
-        bool: True if the route was added successfully, False otherwise.
-    """
-    if add_route_to_system(route):
-        add_route_to_database(route)
-        return True
-    else:
-        return False
-
-
-def delete_route(route: Route) -> None:
-    """
-    Deletes a route from the system and the database
-
-    Args:
-        route (Route): A Route object containing destination, gateway, interface, create_at, and delete_at.
-
-    Returns:
-        bool: True if the route was deleted successfully, False otherwise.
-    """
-    validate_route(route)
-    db = SessionLocal()
-
-    try:
-        if not route_exists (route.destination, route.gateway, route.interface):
-            raise HTTPException(status_code=409, detail="Route does not exist")
-
-        logger.info(f"Deleting route: {route}")
-
-        # Deleting route to system with iproute2
-        command = f"ip route del {route.destination}"
-        if route.gateway:
-            command += f" via {route.gateway}"
-        if route.interface:
-            command += f" dev {route.interface}"
-        run_command(command)
-
-        # Remove route from database with SQLite
-        # TODO: Rethink ID. Should format timestamps before adding them
-        db_route = db.query(RouteModel).filter(
-            RouteModel.destination == route.destination,
-            RouteModel.gateway == route.gateway,
-            RouteModel.interface == route.interface
-        ).first()
-        if db_route:
-            db.delete(db_route)
-            db.commit()
-        else:
-            logger.warning(f"Route not found in database: {route}")
-
-        logger.info("Route removed successfully")
-
-    except Exception as e:
-        logger.error(f"Error removing route: {e}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to remove route")
-
-    finally:
-        db.close()
-
-
-
-# TODO: Esta es nueva/sin usar. Validacion de ruta viene de antes
 def add_route_to_system(route: Route) -> bool:
     """
-    Adds a route to the system using the `ip` command.
+    Adds a route to the system using the `ip route add` command.
 
     Args:
-        route (Route): A Route object containing destination, gateway, interface, create_at, and delete_at.
+        route (Route): A Route object containing to, via, dev, create_at, and delete_at.
 
     Returns:
         bool: True if the route was added successfully, False otherwise.
     """
-    logger.info(f"Adding route to system: {route}")
+    logger.info("Adding route to system...")
+    command: list[str] = ["ip", "route", "add", "to", str(route.to)]
+    command.extend(["via", str(route.via)]) if route.via else command
+    command.extend(["dev", route.dev]) if route.dev else command
+
     try:
-        # Add route to system with iproute2
-        command = f"ip route add {route.destination}"
-        if route.gateway:
-            command += f" via {route.gateway}"
-        if route.interface:
-            command += f" dev {route.interface}"
-        run_command(command)
-        logger.info("Route {route.destination} added to system successfully")
-        return True
-    except HTTPException as e:
-        logger.error(f"Failed to add route to system: {e.detail}")
-        return False
+        run_command(command) 
+    except subprocess.CalledProcessError:
+        raise
     
-def delete_route_from_system(route: Route) -> bool:
+    logger.info(f"Route to {route.to} added to system successfully")
+    return True
+
+
+def delete_route_from_system(to: str) -> bool:
     """
     Deletes a route from the system using the `ip` command.
 
     Args:
-        route (Route): A Route object containing destination, gateway, interface, create_at, and delete_at.
+        to (str): The destination IP Address/Network of the route to delete.
+
+    Returns:
+        bool: True if the route was deleted successfully, False otherwise.
     """
-    logger.info(f"Adding route: {route}")
+    logger.info("Deleting route from system...")
     try:
-        # Remove route from system with iproute2
-        command = f"ip route del {route.destination}"
-        run_command(command)
-        logger.info("Route removed from system successfully")
-        return True
-    except HTTPException as e:
-        logger.error(f"Failed to remove route from system: {e.detail}")
-        return False
+        run_command(["ip", "route", "del", "to", to])
+    except subprocess.CalledProcessError:
+        raise
+    
+    logger.info(f"Route to {to} deleted from system successfully")
+    return True

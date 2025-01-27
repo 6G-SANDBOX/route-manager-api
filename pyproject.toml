@@ -13,7 +13,10 @@ requires-python = ">= 3.12"
 dependencies = [
     "apscheduler>=3.11.0",
     "fastapi[standard]>=0.112.2",
+    "httptools>=0.6.4", # Faster than Python's default asyncio HTTP parser
     "psutil>=6.1.1",
     "pydantic-settings>=2.7.1",
     "sqlalchemy>=2.0.37",
+    "sqlmodel>=0.0.22",
+    "uvloop>=0.21.0", # Faster than Python's default asyncio event loop
 ]

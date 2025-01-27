@@ -1,11 +1,12 @@
-# app/db/models/routes.py
-from sqlalchemy import Column, String, DateTime
-from app.db.database import Base
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
 
-class RouteModel(Base):
-    __tablename__ = "routes"
-    destination = Column(String, primary_key=True, index=True)
-    gateway = Column(String, index=True)
-    interface = Column(String, index=True)
-    create_at = Column(DateTime, index=True, nullable=True)
-    delete_at = Column(DateTime, index=True, nullable=True)
+class DBRoute(SQLModel, table=True):
+    __tablename__ = "Saved Routes"
+    to: str = Field(index=True, primary_key = True)
+    via: Optional[str] = None
+    dev: Optional[str] = None
+    create_at: Optional[datetime] = None
+    delete_at: Optional[datetime] = None
+    active: bool

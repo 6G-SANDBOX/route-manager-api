@@ -22,16 +22,19 @@
 	"customizations": {
         "vscode": {
             "extensions": [
+				"gruntfuggly.todo-tree",
 				"tamasfe.even-better-toml",
-				"qwtel.sqlite-viewer",
-				"shd101wyy.markdown-preview-enhanced"
+				"yy0931.vscode-sqlite3-editor",
+				"shd101wyy.markdown-preview-enhanced",
+				"hediet.vscode-drawio"
             ]
         }
     },
 	"runArgs": [
 		"--cap-add=NET_ADMIN"
-	]
+	],
+	"postCreateCommand": "uv sync --frozen",
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
+	"remoteUser": "root"
 }

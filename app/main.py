@@ -1,9 +1,9 @@
 # app/main.py
-from app.core.logging import configure_logging
 import logging
+from app.core.logging import configure_logging
 from fastapi import FastAPI
-from app.db.database import Base, engine
-from app.services.routes import load_stored_routes
+from app.db.database import create_db_and_tables
+# from app.services.routes import load_stored_routes
 from app.routers import routes
 
 configure_logging()
@@ -17,11 +17,12 @@ def configure_app(app: FastAPI) -> None:
     Configure FastAPI application
     """
     logger.info("Initialize database")
-    Base.metadata.create_all(bind=engine)
+    create_db_and_tables()
 
     logger.info("Load stored routes")
-    load_stored_routes()
+    # load_stored_routes()
 
     logger.info("Register FastAPI routers")
     app.include_router(routes.routes)
+
 configure_app(app)
