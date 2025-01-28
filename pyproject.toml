@@ -1,0 +1,20 @@
+[project]
+name = "route-manager-api"
+version = "0.1.0"
+description = "A REST API developed with FastAPI for managing network routes on a Linux machine using the ip command. It allows you to query active routes, create new routes, and delete existing routes, with token-based authentication and persistence of scheduled routes to ensure their availability even after service restarts."
+authors = [
+    {name = "Jesús Macias Portela", email="jesus.maciasportela@telefonica.com"},
+    {name= "Álvaro Curto Merino", email="alvaro.curtomerino@telefonica.com"},
+    {name="Ana Isabel Lara García", email="anaisabel.laragarcia@telefonica.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">= 3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.7",
+    "httptools>=0.6.4",         # Faster than Python's default asyncio HTTP parser
+    "psutil>=6.1.1",
+    "pydantic-settings>=2.7.1",
+    "sqlmodel>=0.0.22",
+    "uvloop>=0.21.0",           # Faster than Python's default asyncio event loop
+]
