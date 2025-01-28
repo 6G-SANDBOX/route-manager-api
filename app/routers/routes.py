@@ -1,8 +1,10 @@
 # app/routers/routes.py
 import logging
+import json
 import subprocess
 from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from app.services.auth import bearer_token
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -18,14 +20,14 @@ routes = APIRouter(prefix="/routes", tags=["routes"])
 
 
 @routes.get("/", dependencies=[Depends(bearer_token)])
-def routes_get() -> dict[str, list[str]]:
+def routes_get() -> dict[str, list]:
     """
     Fetches all active routes using the `ip route show` command.
 
     Returns:
         `dict[str, list[str]]`: A Diccionary with key word "routes" and a list of active routes as value
     """
-    logger.info("Received GET request")
+    logger.info("GET REQUEST RECEIVED")
     try:
         database_routes: list[dict] = get_routes_from_database()
     except:
@@ -35,15 +37,18 @@ def routes_get() -> dict[str, list[str]]:
             system_routes: str = run_command(["ip", "route", "show"])
         except subprocess.CalledProcessError as e:
             raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
-        
-    return {
-        "database_routes": [str(d) for d in database_routes],
-        "system_routes": [s.strip() for s in system_routes.splitlines()]
-    }
+    
+    return JSONResponse(
+        content={
+            "database_routes": database_routes,
+            "system_routes": [s.strip() for s in system_routes.splitlines()]
+        },
+        status_code=200
+    )
 
 
-@routes.post("/", dependencies=[Depends(bearer_token)])
-def routes_post(route: Route) -> dict[str, str]:
+@routes.put("/", dependencies=[Depends(bearer_token)])
+def routes_put(route: Route) -> dict[str, str]:
     """
     Schedules a new route to be added to the system and the database
 
@@ -53,7 +58,7 @@ def routes_post(route: Route) -> dict[str, str]:
     Returns:
        `dict[str, str]`: Success message indicating the route was scheduled.
     """
-    logger.info("Received POST request")
+    logger.info("PUT REQUEST RECEIVED")
 
     if route.create_at > datetime.now(timezone.utc):
         try:
@@ -70,10 +75,16 @@ def routes_post(route: Route) -> dict[str, str]:
             add_route_to_database(route, active=True)
         except subprocess.CalledProcessError as e:
             if "RTNETLINK answers: File exists" in e.stderr.strip():
-                raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the system.")
+                return JSONResponse(
+                    content={"message": f"A route to {route.to} already exists in the system"},
+                    status_code=200
+                )
             raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
 
-    return {"message": "Route succesfully added or scheduled"}
+    return JSONResponse(
+        content={"message": "Route succesfully added or scheduled"},
+        status_code=201
+    )
 
 
 @routes.delete("/", dependencies=[Depends(bearer_token)])
@@ -87,7 +98,7 @@ def routes_delete(to: Annotated[IPvAnyNetwork, Body(embed=True)]) -> dict[str, s
     Returns:
         dict[str, str]: A success message indicating the route was removed.
     """
-    logger.info("Received DELETE request")
+    logger.info("DELETE REQUEST RECEIVED")
     try:
         active: bool = delete_route_from_database(str(to))
     except NoResultFound:
@@ -105,5 +116,8 @@ def routes_delete(to: Annotated[IPvAnyNetwork, Body(embed=True)]) -> dict[str, s
                 delete_route_from_system(str(to))
             except subprocess.CalledProcessError as e:
                 raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
-
-    return {"message": "Route succesfully deleted"}
+            
+    return JSONResponse(
+        content={"message": "Route succesfully deleted"},
+        status_code=200
+    )

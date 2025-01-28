@@ -28,155 +28,127 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - **Delete Routes:** Remove existing routes and unschedule their deletion.
 - **Authentication:** Protect endpoints using a Bearer token for authentication.
 - **Persistence:** Store scheduled routes in a SQLite database to ensure they are reloaded after service restarts.
-- **systemd Service:** Integrate with systemd to run the API as a system service.
+- **Service:** Integrate with systemd to run the API as a system service.
 - **Logging:** Detailed logging of operations and errors for monitoring and debugging.
 
 
 ## Repository Layout
 ```
-route-manager-api/
-├── .devcontainer/           # (Optional) Configuration for devcontainers.
-├── app/                     # Contains the main application files.
-│   ├── __init__.py          # Makes "app" a "Python package"
-│   ├── core/                # Configurations and global logic.
+├── LICENSE                # Licensing information for the repository
+├── README.md              # The documentation you are reading right now
+├── .devcontainer/         # (Optional) Configuration for devcontainers.
+├── .env                   # (Optional) Sample configuration values to overwrite the defaults
+├── app/                   # Main directory for the application code
+│   ├── __init__.py            # Makes "app" a "Python package" (ignore it)
+│   ├── core/                  # Configurations and global logic.
 │   │   ├── __init__.py
-│   │   ├── config.py        # Global configuration of the application
-│   │   ├── logging.py       # (Not yet implemented) Logging configuration
-│   │   └── scheduler.py     # Task scheduler functions and configuration
-│   ├── db/                  # Database settings
+│   │   ├── config.py              # Global application settings
+│   │   ├── logging.py             # Global logging settings
+│   ├── db/                    # Database-related modules and utilities
 │   │   ├── __init__.py
-│   │   ├── database.py      # SQLAlchemy configuration
-│   │   └── models/          # Contains database model modules
-│   │       ├── __init__.py
-│   │       └── routes.py    # Defines database models for Routes
-│   ├── routers/             # Contains router modules
+│   │   ├── database.py            # Handles database connection and initialization
+│   │   ├── models/                # Database models
+│   │   │   ├── __init__.py
+│   │   │   └── routes.py              # SQLModel for stored routes
+│   │   └── routes.py              # Utilities for interaction with the routes database
+│   ├── routers/               # Manage application routes
 │   │   ├── __init__.py
-│   │   └── routes.py        # Defines endpoints related to Routes
-│   ├── schemas/             # Contains Pydantic schema modules
+│   │   └── routes.py              # Defines API endpoints for routes
+│   ├── schemas/               # Pydantic models for data validation and serialization
 │   │   ├── __init__.py
-│   │   └── routes.py        # Defines schemas for Routes
-│   ├── services/            # Checkout logic and auxiliary services
+│   │   └── routes.py              # Main schemas for routes
+│   ├── services/              # Auxiliary utilities and services for the API endpoints
 │   │   ├── __init__.py
-│   │   ├── auth.py          # Functions related to user authentication and authorization
-│   │   ├── routes.py        # Auxiliary functions for the API endpoints
-│   │   └── utils.py         # General auxiliary functions
-│   ├── tests/               # (Not yet implemented) Contains test modules
+│   │   ├── auth.py                # Functions related to user authentication and authorization
+│   │   ├── routes.py              # Service functions for routes
+│   │   └── utils.py               # Miscellaneous utility functions
+│   ├── tests/                 # (Not yet implemented) Contains test modules
 │   │   ├── __init__.py
-│   │   └─── test_routes.py  # (Not yet implemented) Tests for the Routes module
+│   │   └─── test_routes.py        # (Not yet implemented) Tests for the Routes module
 │   ├── __init__.py
-│   └── main.py              # Initializes the FastAPI application.
-├── .env                     # (Optional) Default configuration values
-├── .gitignore
-├── .python-version
-├── LICENSE
-├── pyproject.toml
-├── README.md
-└── uv.lock
+│   └── main.py                # Initializes the FastAPI application.
+├── app_flow.drawio        # Visual representation of the API endpoints and expected behaviour of the app
+├── pyproject.toml         # Python project configuration file used by tools like Poetry or uv (uv in our case)
+└── uv.lock                # Lock file where uv manages app dependencies
+
 
 ```
 
 ## Prerequisites
 
-- **Operating System:** Linux
+- **Operating System:** Linux-based. Tested on Ubuntu 22.04 and Debian 12.
 - **Python:** Version 3.12 or higher
 - **Permissions:** Superuser permissions to manage network routes (capability `NET_ADMIN`) and to configure `systemd` services
 
 ## Installation
-
+All steps are intended to be run as `root`.
 ### 1. Clone the Repository
 
 Clone this repository to your local machine:
 
 ```bash
-git https://github.com/6G-SANDBOX/route-manager-api
+git https://github.com/6G-SANDBOX/route-manager-api /opt/route-manager-api
 cd route-manager-api
 ```
 
 ### 2. Install uv
 
 The tool `uv` will take care for everything python-releated, from python versions, to virtual enviroments and dependencies.
-
-
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 3. Install Dependencies
-
-Install all necessary dependencies in a virtual environment as specified in the `pyproject.toml` file
+### 3. Create Virtual Environment
+Download all necessary dependencies in a virtual environment as specified in the `pyproject.toml` file using `uv`
 
 ```bash
 uv sync
+```
 
+### 4. (Optional) Create a systemd service
+To run the API as a system service, create a systemd unit file.
+Uf you want to directly try the tool, run:
+```bash 
 uv run fastapi run --port 8172  # Default port is 8000
 ```
 
-**Current dependencies:**
+#### 4.1. Create the Unit File
 
-```toml
-dependencies = [
-    "apscheduler>=3.11.0",
-    "fastapi[standard]>=0.112.2",
-    "httptools>=0.6.4", # Faster than Python's default asyncio HTTP parser
-    "psutil>=6.1.1",
-    "pydantic-settings>=2.7.1",
-    "sqlalchemy>=2.0.37",
-    "uvloop>=0.21.0", # Faster than Python's default asyncio event loop
-```
-
-### 4. Configure the Database
-
-The project uses SQLite to persist scheduled routes. The database is created automatically when you start the application. No additional configuration is required.
-
-### 5. Configure the systemd Service
-
-To run the API as a system service, create a systemd unit file.
-
-#### 5.1. Create the Unit File
-
-Create a file named `route-manager.service` in `/etc/systemd/system/`:
+Create a file named `route-manager-api.service` in `/etc/systemd/system/`:
 
 ```bash
-sudo nano /etc/systemd/system/route-manager.service
-```
-
-#### 5.2. Add Content to the File
-
-Replace `/path/to/your/app` with the directory where your `main.py` file is located:
-
-```ini
+cat > /etc/systemd/system/route-manager-api.service << 'EOF'
 [Unit]
-Description=Route Manager Service
+Description=A REST API developed with FastAPI for managing network routes on a Linux machine using the ip command. It allows you to query active routes, create new routes, and delete existing routes, with token-based authentication and persistence of scheduled routes to ensure their availability even after service restarts.
 After=network.target
 
 [Service]
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/path/to/your/app
-ExecStart=/usr/bin/python3 main.py
-Restart=on-failure
-RestartSec=10s
-Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/.local/bin/uv --directory /opt/route-manager-api/ run fastapi run --port 8172
+StandardOutput=append:/var/log/route_manager.log
+StandardError=append:/var/log/route_manager.log
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+EOF
 ```
 
-**Note:** Ensure that the user and group (`root` in this case) have the appropriate permissions for the application directory.
-
-#### 5.3. Reload systemd and Start the Service
+#### 4.2. Reload systemd and start the service
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable route-manager.service
-sudo systemctl start route-manager.service
+systemctl daemon-reload
+systemctl enable route-manager-api.service
+systemctl start route-manager-api.service
 ```
 
-#### 5.4. Verify the Service Status
+#### 4.3. Verify the service Status
 
 ```bash
-sudo systemctl status route-manager.service
+systemctl status route-manager.service
 ```
 
 You should see that the service is active and running. If there are any errors, they will appear in the output of this command.
@@ -188,7 +160,7 @@ You should see that the service is active and running. If there are any errors, 
 The API offers the following endpoints:
 
 - **GET /routes:** Retrieve all active routes.
-- **POST /routes:** Schedule the creation of a new route.
+- **PUT /routes:** Schedule the creation of a new route.
 - **DELETE /routes:** Delete an existing route and remove its schedule.
 
 ### Usage Examples with `curl`
@@ -196,71 +168,103 @@ The API offers the following endpoints:
 #### Retrieve Active Routes
 
 ```bash
-curl -X GET "http://localhost:8172/routes" \
--H "Authorization: Bearer this_is_something_secret" \
--H "Accept: application/json"
+curl -X 'GET' \
+  'http://localhost:8172/routes/' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer this_is_something_secret'
 ```
 
 **Successful Response:**
-
+Code: `200`
 ```json
 {
-  "routes": [
-    "default via 192.168.1.1 dev eth0",
-    "192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.100"
+  "database_routes": [
+    {
+      "via": "192.168.215.100",
+      "create_at": "2025-01-27T03:03:44.501824+00:00",
+      "to": "10.10.2.10/32",
+      "active": true,
+      "dev": null,
+      "delete_at": null
+    },
+    {
+      "via": null,
+      "create_at": "2027-01-30T09:38:59.284000+00:00",
+      "to": "10.20.30.0/24",
+      "active": false,
+      "dev": "eth0",
+      "delete_at": "2027-02-4T09:38:59.284000+00:00"
+    }
+  ],
+  "system_routes": [
+    "default via 192.168.215.1 dev eth0",
+    "10.10.2.10/32 via 192.168.215.100 scope link",
+    "192.168.215.0/24 dev eth0 proto kernel scope link src 192.168.215.2"
   ]
 }
 ```
 
-#### Add a Scheduled Route
+#### Add a Route
 
 ```bash
-curl -X POST "http://localhost:8172/routes" \
--H "Authorization: Bearer this_is_something_secret" \
--H "Content-Type: application/json" \
--d '{
-  "to": "192.168.20.0/24",
-  "via": "192.168.2.1",
-  "dev": "eth0",
-  "create_at": "2024-10-10T12:00:00",
-  "delete_at": "2024-10-10T18:00:00"
+curl -X 'PUT' \
+  'http://localhost:8172/routes/' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer this_is_something_secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "via": "192.168.215.100",
+  "create_at": "2025-01-27T03:03:44.501824+00:00",
+  "to": "10.10.2.10/32",
+  "active": true,
+  "dev": null,
+  "delete_at": null
 }'
 ```
 
 **Successful Response:**
-
+Code: `201`
 ```json
 {
-  "message": "Route scheduled successfully"
+  "message": "Route succesfully added or scheduled"
+}
+```
+
+**Route already exists:**
+Also succesful to achieve idempotency
+Code: `200`
+```json
+{
+  "message": "A route to 10.10.2.10/32 already exists in the system"
 }
 ```
 
 #### Delete a Route
 
 ```bash
-curl -X DELETE "http://localhost:8172/routes" \
--H "Authorization: Bearer this_is_something_secret" \
--H "Content-Type: application/json" \
--d '{
-  "to": "192.168.2.0/24",
-  "via": "192.168.2.1",
-  "dev": "eth0"
+curl -X 'DELETE' \
+  'http://localhost:8172/routes/' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer this_is_something_secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "to": "10.10.2.10"
 }'
 ```
 
 **Successful Response:**
-
+Code: `200`
 ```json
 {
-  "message": "Route deleted and removed from schedule"
+  "message": "Route succesfully deleted"
 }
 ```
 
-**Response When Route Not Found:**
-
+**Route Not Found:**
+Code: `404`
 ```json
 {
-  "detail": "Route not found"
+  "detail": "Route to 10.10.2.10/32 not found in the database."
 }
 ```
 
@@ -295,6 +299,14 @@ logging.basicConfig(
 ```
 
 ## Future development
+#### Validation Loop
+As seen in the `app_flow.drawio`, an internal loop will manage the lifecycle of routes stored in the database.
+
+#### Exit Function
+By default, the app will remove all routes added by it when terminating the service.
+This will be an optional feature, that can be disabled with an envvar.
+
+#### Future iptools2 options
 Currently, the integration of the following `ip route` subcommands:
 - `metric`
 - `table`
@@ -304,6 +316,9 @@ Currently, the integration of the following `ip route` subcommands:
 - `nexthop`
 - `onlink`
 is not an urgent task, but the tool may be expanded to include them
+
+#### Improve Documentation
+Help is always welcomed, but yeah, some stuff might be improcise/wrong
 
 ## Security Considerations
 

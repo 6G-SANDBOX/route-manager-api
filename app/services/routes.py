@@ -1,42 +1,44 @@
 # app/services/routes.py
 import logging
+import json
 import subprocess
+from datetime import datetime, timezone
 from fastapi import HTTPException
-from app.schemas.routes import Route
+from pydantic import ValidationError
+from app.db.routes import get_routes_from_database
 from app.services.utils  import run_command
+from app.schemas.routes import Route
 
 logger = logging.getLogger(__name__)
 
 
-# def load_stored_routes_to_system() -> None:
-#     """
-#     Load active routes from the database and applies them to the system.
-#     """
-#     logger.info("Loading active routes from database")
-#     try:
-#         database_routes: list = get_routes_from_database()
-#     db: Session = SessionLocal()
-#     try:
-#         now = datetime.now(datetime.timezone.utc)
-#         stored_routes = db.query(DBRoute).all()
+def load_database_routes_to_system() -> None:
+    """
+    Load active routes from the database and applies them to the system.
+    """
+    logger.info("LOAD ACTIVE ROUTES FROM THE DATABASE TO THE SYSTEM")
+    try:
+        database_routes: list[dict] = get_routes_from_database()
+    except:
+        raise HTTPException(status_code=500, detail="Error fetching routes from database")
 
-#         for db_route in stored_routes:
-#             try:
-#                 route = Route.model_validate(db_route)
+    for route in database_routes:
 
-#                 if route.delete_at and route.delete_at < now:
-#                     delete_route(route)
-#                     break
-#                 else:
-#                     add_route(route)
+        # TODO: function that checks if a route EXPIRED and deletes it
+        # TODO: function that checks if a route BEGAN and modifies active from it
 
-#             except Exception as e:
-#                 logger.error(f"Error processing route {db_route}: {e}")
+        if route["active"]:
+            try:
+                add_route_to_system(Route(**route))
 
-#     except Exception as e:
-#         logger.error(f"Error loading routes from database: {e}")
-#     finally:
-#         db.close()
+            except (ValidationError, ValueError, TypeError) as e:
+                logger.error(f"Error impoting route from database: {route}")
+                logger.error(f"Error details: {e}")
+            except subprocess.CalledProcessError as e:
+                if "RTNETLINK answers: File exists" in e.stderr.strip():
+                    logger.warning(f"Route from database to {route["to"]} already existed in the system")
+                    return
+                raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
 
 
 def add_route_to_system(route: Route) -> bool:

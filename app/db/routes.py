@@ -1,5 +1,7 @@
 # app/db/routes.py
 import logging
+import json
+from datetime import datetime, timezone
 from sqlmodel import Session, select
 from app.db.database import engine
 from app.db.models.routes import DBRoute
@@ -12,27 +14,25 @@ def get_routes_from_database() -> list[dict]:
     Fetches all routes from the database.
 
     Returns:
-        list[str]: A list of strings corresponding to each stored route.
+        list[json]: A list of JSON dictionaries corresponding to each stored route.
     """
     logger.info("Fetching routes from database...")
+
     with Session(engine) as session, session.begin():
     # inner context calls session.commit(), if there were no exceptions
     # outer context calls session.close()
         db_routes = session.exec(select(DBRoute)).all()
-        # Same as the following, but this allows to specify the parameter order
-        # serialized_routes = [route.model_dump() for route in db_routes]
-        serialized_routes = [
-            {
-                "to": route.to,
-                "via": route.via,
-                "dev": route.dev,
-                "create_at": route.create_at,
-                "delete_at": route.delete_at,
-                "active": route.active
-            }
-            for route in db_routes
-        ]
-    
+
+        serialized_routes: list[dict] = []
+        for route in db_routes:
+            route_dict = json.loads(route.model_dump_json())
+
+            route_dict["create_at"] = datetime.fromisoformat(route_dict["create_at"]).astimezone(timezone.utc).isoformat()
+            if route_dict["delete_at"]:
+                route_dict["delete_at"] = datetime.fromisoformat(route_dict["delete_at"]).astimezone(timezone.utc).isoformat()
+
+            serialized_routes.append(route_dict)
+
     logger.info("Routes fetched from database successfully")
     return serialized_routes
 
@@ -50,7 +50,7 @@ def add_route_to_database(route: Route, active: bool) -> bool:
     with Session(engine) as session, session.begin():
         db_route = DBRoute(
             to=str(route.to),
-            via=str(route.via),
+            via=str(route.via) if route.via else None,
             dev=route.dev,
             create_at=route.create_at,
             delete_at=route.delete_at,
