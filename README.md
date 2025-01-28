@@ -213,12 +213,9 @@ curl -X 'PUT' \
   -H 'Authorization: Bearer this_is_something_secret' \
   -H 'Content-Type: application/json' \
   -d '{
-  "via": "192.168.215.100",
-  "create_at": "2025-01-27T03:03:44.501824+00:00",
   "to": "10.10.2.10/32",
-  "active": true,
-  "dev": null,
-  "delete_at": null
+  "via": "192.168.215.100",
+  "create_at": "2025-01-27T03:03:44.501824+00:00"
 }'
 ```
 
@@ -305,6 +302,10 @@ As seen in the `app_flow.drawio`, an internal loop will manage the lifecycle of 
 #### Exit Function
 By default, the app will remove all routes added by it when terminating the service.
 This will be an optional feature, that can be disabled with an envvar.
+
+#### nftables exceptions
+When using this component inside the 6G-Sandbox bastion, added routes should also create exceptions for the
+highly restrictive firewall of the bastion.
 
 #### Future iptools2 options
 Currently, the integration of the following `ip route` subcommands:
