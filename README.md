@@ -9,15 +9,15 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Create and Activate a Virtual Environment](#2-create-and-activate-a-virtual-environment)
-  - [3. Install Dependencies](#3-install-dependencies)
-  - [4. Configure the Database](#4-configure-the-database)
-  - [5. Configure the systemd Service](#5-configure-the-systemd-service)
+  - [2. Install uv](#2-install-uv)
+  - [3. Create a Virtual Environment](#3-create-a-virtual-environment)
+  - [4. (Optional) Create a systemd service](#4-optional-create-a-systemd-service)
 - [Usage](#usage)
   - [Available Endpoints](#available-endpoints)
   - [Usage Examples with `curl`](#usage-examples-with-curl)
 - [API Documentation](#api-documentation)
 - [Logging](#logging)
+- [Future development](#future-development)
 - [Security Considerations](#security-considerations)
 - [License](#license)
 
@@ -98,7 +98,7 @@ The tool `uv` will take care for everything python-releated, from python version
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 3. Create Virtual Environment
+### 3. Create a Virtual Environment
 Download all necessary dependencies in a virtual environment as specified in the `pyproject.toml` file using `uv`
 
 ```bash
@@ -159,9 +159,10 @@ You should see that the service is active and running. If there are any errors, 
 
 The API offers the following endpoints:
 
-- **GET /routes:** Retrieve all active routes.
-- **PUT /routes:** Schedule the creation of a new route.
-- **DELETE /routes:** Delete an existing route and remove its schedule.
+- **GET /routes/:** Retrieve all active routes.
+- **PUT /routes/:** Schedule the creation of a new route.
+- **DELETE /routes/:** Delete an existing route and remove its schedule.
+> WARNING: Beware the trailing slash
 
 ### Usage Examples with `curl`
 
