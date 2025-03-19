@@ -5,7 +5,8 @@ description = "A REST API developed with FastAPI for managing network routes on 
 authors = [
     {name = "Jesús Macias Portela", email="jesus.maciasportela@telefonica.com"},
     {name= "Álvaro Curto Merino", email="alvaro.curtomerino@telefonica.com"},
-    {name="Ana Isabel Lara García", email="anaisabel.laragarcia@telefonica.com"}
+    {name="Ana Isabel Lara García", email="anaisabel.laragarcia@telefonica.com"},
+    {name="Guillermo Sanz López", email="guillermo.sanzlopez@telefonica.com"}
 ]
 readme = "README.md"
 license = {file = "LICENSE"}

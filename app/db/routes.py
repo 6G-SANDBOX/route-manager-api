@@ -82,3 +82,31 @@ def delete_route_from_database(to: str) -> bool:
 
     logger.info(f"Route to {to} deleted from database successfully")
     return db_route.active
+
+
+def activate_route_in_database(to: str) -> bool:
+    """
+    Updates the 'active' field of a route in the database to True.
+
+    Args:
+        to (str): The destination IP Address/Network of the route to activate.
+
+    Returns:
+        bool: True if the route was found and updated, False otherwise.
+    """
+    logger.info(f"Activating route {to} in the database...")
+
+    with Session(engine) as session, session.begin():
+        statement = select(DBRoute).where(DBRoute.to == to)
+        db_route = session.exec(statement).one_or_none()
+
+        if not db_route:
+            logger.warning(f"Route {to} not found in the database.")
+            return False
+
+        db_route.active = True
+        session.add(db_route)
+        session.commit()
+
+    logger.info(f"Route {to} activated successfully in the database.")
+    return True
