@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from pydantic import IPvAnyNetwork
-from app.schemas.routes  import Route
+from app.schemas.routes import Route, RouteUpdate
 from app.services.routes import add_route_to_system, delete_route_from_system
-from app.db.routes        import get_routes_from_database, add_route_to_database, delete_route_from_database
-from app.services.utils  import run_command
+from app.db.routes import get_routes_from_database, add_route_to_database, delete_route_from_database, update_route_in_database
+from app.services.utils import run_command
 
 logger = logging.getLogger(__name__)
 routes = APIRouter(prefix="/routes", tags=["routes"])
@@ -60,19 +60,22 @@ def routes_put(route: Route) -> dict[str, str]:
     """
     logger.info("PUT REQUEST RECEIVED")
 
-    if route.create_at > datetime.now(timezone.utc):
+    now = datetime.now(timezone.utc)
+
+    if route.create_at > now:
         try:
-            add_route_to_database(route, active=False)
+            add_route_to_database(route, active=False, status="pending")
         except IntegrityError:
             logger.warning(f"Route to {route.to} already exists in the database.")
             raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the database.")
         except SQLAlchemyError as e:
             logger.error(f"Database error while adding route: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Database error while adding route: {str(e)}")
-    else:
+
+    elif route.create_at <= now and (not route.delete_at or route.delete_at > now):
         try:
             add_route_to_system(route)
-            add_route_to_database(route, active=True)
+            add_route_to_database(route, active=True, status="active")
         except subprocess.CalledProcessError as e:
             if "RTNETLINK answers: File exists" in e.stderr.strip():
                 return JSONResponse(
@@ -80,7 +83,21 @@ def routes_put(route: Route) -> dict[str, str]:
                     status_code=200
                 )
             raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
+    
+    elif route.delete_at and route.delete_at < now:
+        try:
+            add_route_to_database(route, active=False, status="expired")
+        except IntegrityError:
+            logger.warning(f"Route to {route.to} already exists in the database.")
+            raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the database.")
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while adding route: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error while adding route: {str(e)}")
 
+    else:
+        logger.error(f"Unexpected case for route {route.to}")
+        raise HTTPException(status_code=500, detail="Unexpected error while processing route.")
+    
     return JSONResponse(
         content={"message": "Route succesfully added or scheduled"},
         status_code=201
@@ -121,3 +138,25 @@ def routes_delete(to: Annotated[IPvAnyNetwork, Body(embed=True)]) -> dict[str, s
         content={"message": "Route succesfully deleted"},
         status_code=200
     )
+
+
+@routes.patch("/", dependencies=[Depends(bearer_token)])
+def routes_update(route_update: RouteUpdate) -> dict[str, str]:
+    """
+    Updates an existing route in the database.
+
+    Args:
+        route_update (Route): A Route object containing the fields to update.
+
+    Returns:
+        dict[str, str]: A success message if the update was successful.
+    """
+    logger.info(f"PATCH REQUEST RECEIVED to update route {route_update.to}")
+
+    if update_route_in_database(str(route_update.to), route_update):
+        return JSONResponse(
+            content={"message": f"Route {route_update.to} successfully updated"},
+            status_code=200
+        )
+    else:
+        raise HTTPException(status_code=404, detail=f"Route {route_update.to} not found in the database.")

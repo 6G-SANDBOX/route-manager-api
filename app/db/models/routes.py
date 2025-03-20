@@ -10,3 +10,4 @@ class DBRoute(SQLModel, table=True):
     create_at: Optional[datetime] = None
     delete_at: Optional[datetime] = None
     active: bool
+    status: Optional[str] = None

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from app.services.routes import add_route_to_system, delete_route_from_system
-from app.db.routes import get_routes_from_database, delete_route_from_database, activate_route_in_database
+from app.db.routes import get_routes_from_database, delete_route_from_database, activate_route_in_database, deactivate_route_in_database, update_route_status
 from app.schemas.routes import Route
 from app.core.config import settings
 
@@ -25,19 +25,21 @@ async def route_manager_loop():
 
         for route in database_routes:
             # If `delete_at` is set and expired, remove the route  
-            if route["delete_at"] and datetime.fromisoformat(route["delete_at"]) <= now:
+            if route["delete_at"] and datetime.fromisoformat(route["delete_at"]) <= now and route["status"] != "expired":
                 logger.info(f"Deleting expired route: {route['to']}")
                 try:
-                    delete_route_from_database(route["to"])
+                    update_route_status(route["to"], "expired")
+                    deactivate_route_in_database(route["to"])
                     delete_route_from_system(route["to"])
                 except Exception as e:
                     logger.error(f"Error deleting route {route['to']}: {e}")
 
             # If `create_at` is set, expired, but not yet active, activate it  
-            elif route["create_at"] and datetime.fromisoformat(route["create_at"]) <= now and not route["active"]:
+            elif route["create_at"] and datetime.fromisoformat(route["create_at"]) <= now and (not route["delete_at"] or datetime.fromisoformat(route["delete_at"]) > now) and not route["active"]:
                 logger.info(f"Activating scheduled route: {route['to']}")
                 try:
                     if activate_route_in_database(route["to"]):
+                        update_route_status(route["to"], "active")
                         route_obj = Route(**route)
                         add_route_to_system(route_obj)
                 except Exception as e:
