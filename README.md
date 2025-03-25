@@ -1,6 +1,6 @@
 # Route Manager API
 
-A REST API developed with FastAPI for managing network routes on a Linux machine using the `ip` command. It allows you to query active routes, create new routes, and delete existing routes, with token-based authentication and persistence of scheduled routes to ensure their availability even after service restarts.
+A REST API developed with FastAPI for managing network routes on a Linux machine using the `ip` command. It allows you to query active routes, create new routes, update or pause existing ones, and delete routes. The system includes route scheduling based on timestamps, persistence using SQLite, and lifecycle management through a background loop.
 
 ## Table of Contents
 
@@ -14,6 +14,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
   - [4. (Optional) Create a systemd service](#4-optional-create-a-systemd-service)
 - [Usage](#usage)
   - [Available Endpoints](#available-endpoints)
+  - [Route Lifecycle](#route-lifecycle)
   - [Usage Examples with `curl`](#usage-examples-with-curl)
 - [API Documentation](#api-documentation)
 - [Logging](#logging)
@@ -23,9 +24,13 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 
 ## Features
 
-- **Query Active Routes:** Retrieve all active network routes on the Linux machine.
+- **Query Active Routes:** Retrieve all routes currently active in the system and stored in the database.
 - **Create Routes:** Add new routes with options to schedule their creation and deletion.
+- **Lifecycle Management:** A background task checks and updates route states based on timestamps.
+- **Route Status:** Each route can be in one of five states: `pending`, `active`, `paused`, `expired`, or `deleted`.
+- **Pause/Resume Routes:** Temporarily pause or resume active routes via dedicated endpoints.
 - **Delete Routes:** Remove existing routes and unschedule their deletion.
+- **Deleted Routes History:** A separate table `Deleted_Routes` tracks all expired or manually deleted routes.
 - **Authentication:** Protect endpoints using a Bearer token for authentication.
 - **Persistence:** Store scheduled routes in a SQLite database to ensure they are reloaded after service restarts.
 - **Service:** Integrate with systemd to run the API as a system service.
@@ -49,7 +54,8 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 │   │   ├── database.py            # Handles database connection and initialization
 │   │   ├── models/                # Database models
 │   │   │   ├── __init__.py
-│   │   │   └── routes.py              # SQLModel for stored routes
+│   │   │   ├── routes.py              # SQLModel for stored routes
+│   │   │   └── deleted_routes.py      # SQLModel for deleted routes
 │   │   └── routes.py              # Utilities for interaction with the routes database
 │   ├── routers/               # Manage application routes
 │   │   ├── __init__.py
@@ -60,6 +66,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 │   ├── services/              # Auxiliary utilities and services for the API endpoints
 │   │   ├── __init__.py
 │   │   ├── auth.py                # Functions related to user authentication and authorization
+│   │   ├── lifecycle.py           # Loop wich validate the routes status
 │   │   ├── routes.py              # Service functions for routes
 │   │   └── utils.py               # Miscellaneous utility functions
 │   ├── tests/                 # (Not yet implemented) Contains test modules
@@ -159,14 +166,36 @@ You should see that the service is active and running. If there are any errors, 
 
 The API offers the following endpoints:
 
-- **GET /routes/:** Retrieve all active routes.
-- **PUT /routes/:** Schedule the creation of a new route.
-- **DELETE /routes/:** Delete an existing route and remove its schedule.
+| Method | Path              | Description                             |
+|--------|-------------------|-----------------------------------------|
+| GET    | `/routes/`        | Fetch current system & DB routes        |
+| PUT    | `/routes/`        | Add a new route (scheduled or now)      |
+| PATCH  | `/routes/`        | Update route fields                     |
+| DELETE | `/routes/`        | Remove a route manually                 |
+| PATCH  | `/routes/pause`   | Pause an active route                   |
+| PATCH  | `/routes/activate`| Resume a paused route                   |
+| GET    | `/routes/deleted` | Show deleted or expired routes          |
+
 > WARNING: Beware the trailing slash
+
+### Route's Loop
+
+Each route progresses through the following states:
+
+- **pending**: Waiting for `create_at` to be reached
+- **active**: Between `create_at` and `delete_at`
+- **paused**: Manually paused by user during active state
+- **expired**: Automatically marked after `delete_at`
+- **deleted**: Manually removed by the user
+
+The background lifecycle loop (runs every 10 seconds):
+- Activates pending routes when their `create_at` is reached
+- Expires active routes when `delete_at` is reached
+- Ignores paused routes
 
 ### Usage Examples with `curl`
 
-#### Retrieve Active Routes
+#### Retrieve Routes
 
 ```bash
 curl -X 'GET' \
@@ -255,6 +284,122 @@ Code: `200`
 ```json
 {
   "message": "Route succesfully deleted"
+}
+```
+
+**Route Not Found:**
+Code: `404`
+```json
+{
+  "detail": "Route to 10.10.2.10/32 not found in the database."
+}
+```
+
+#### Update a Route
+
+```bash
+curl -X 'PATCH' \
+  'http://localhost:8172/routes/' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer this_is_something_secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "to": "10.10.2.10/32",
+    "delete_at": "2025-01-27T03:03:44.501824+00:00"
+}'
+```
+
+**Successful Response:**
+Code: `200`
+```json
+{
+  "message": "Route succesfully updated"
+}
+```
+
+**Route Not Found:**
+Code: `404`
+```json
+{
+  "detail": "Route to 10.10.2.10/32 not found in the database."
+}
+```
+
+#### Retrieve Deleted Routes
+
+```bash
+curl -X 'GET' \
+  'http://localhost:8172/routes/deleted' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer this_is_something_secret'
+```
+
+**Successful Response:**
+Code: `200`
+```json
+{
+  "deleted_routes": [
+    {
+      "create_at": "2025-03-19T18:40:00",
+      "to": "10.10.20.0/24",
+      "via": null,
+      "removed_at": "2025-03-24T18:11:06.458151+00:00",
+      "id": 1,
+      "dev": "eth0",
+      "delete_at": "2025-03-24T18:11:00",
+      "status": "expired"
+    },
+    {
+      "create_at": "2025-03-19T18:40:00",
+      "to": "10.10.20.0/24",
+      "via": null,
+      "removed_at": "2025-03-24T18:13:06.628571+00:00",
+      "id": 2,
+      "dev": "eth0",
+      "delete_at": "2025-03-24T18:13:00",
+      "status": "expired"
+    },
+  ]
+}
+```
+
+#### Pause a Route
+```bash
+curl -X PATCH http://localhost:8172/routes/pause \
+  -H 'Authorization: Bearer your_token' \
+  -H 'Content-Type: application/json' \
+  -d '{"to": "10.10.2.10/32"}'
+```
+
+**Successful Response:**
+Code: `200`
+```json
+{
+  "message": "Route succesfully paused"
+}
+```
+
+**Route Not Found:**
+Code: `404`
+```json
+{
+  "detail": "Route to 10.10.2.10/32 not found in the database."
+}
+```
+
+#### Reactivate a Route
+```bash
+curl -X PATCH http://localhost:8172/routes/activate \
+  -H 'Authorization: Bearer your_token' \
+  -H 'Content-Type: application/json' \
+  -d '{"to": "10.10.2.10/32"}'
+```
+
+**Successful Response:**
+Code: `200`
+```json
+{
+  "message": "Route succesfully activated"
 }
 ```
 

@@ -1,6 +1,7 @@
 # app/db/database.py
 from sqlmodel import SQLModel, create_engine
 from app.db.models.routes import DBRoute
+from app.db.models.deleted_routes import DeletedRoute
 from app.core.config import settings
 
 

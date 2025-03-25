@@ -11,6 +11,17 @@ class Route(BaseModel):
     dev: Optional[str] = Field(None, description="Output NIC for the route")
     create_at: Optional[datetime] = Field(None, description="Timestamp of scheduled route creation")
     delete_at: Optional[datetime] = Field(None, description="Timestamp of scheduled route deletion")
+    status: Optional[str] = Field(None, description="Status of the route (e.g. active, expired)")
+
+    @model_validator(mode='before')
+    def convert_empty_fields_to_none(cls, values):
+        """
+        Converts empty strings in 'via', 'dev', and 'delete_at' to None to avoid validation errors.
+        """
+        for field in ["via", "dev", "delete_at"]:
+            if field in values and values[field] == "":
+                values[field] = None
+        return values
 
     @model_validator(mode='after')
     def check_via_or_dev(cls, values):
@@ -43,3 +54,12 @@ class Route(BaseModel):
             elif values.delete_at < values.create_at:
                 raise ValueError(f"Route delete_at timestamp: '{values.delete_at}' can't be set before create_at or present time")
         return values
+
+
+
+class RouteUpdate(BaseModel):
+    to: str
+    via: Optional[str] = None
+    dev: Optional[str] = None
+    create_at: Optional[datetime] = None
+    delete_at: Optional[datetime] = None
