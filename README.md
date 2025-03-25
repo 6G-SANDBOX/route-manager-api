@@ -178,6 +178,21 @@ The API offers the following endpoints:
 
 > WARNING: Beware the trailing slash
 
+### Route's Loop
+
+Each route progresses through the following states:
+
+- **pending**: Waiting for `create_at` to be reached
+- **active**: Between `create_at` and `delete_at`
+- **paused**: Manually paused by user during active state
+- **expired**: Automatically marked after `delete_at`
+- **deleted**: Manually removed by the user
+
+The background lifecycle loop (runs every 10 seconds):
+- Activates pending routes when their `create_at` is reached
+- Expires active routes when `delete_at` is reached
+- Ignores paused routes
+
 ### Usage Examples with `curl`
 
 #### Retrieve Routes
