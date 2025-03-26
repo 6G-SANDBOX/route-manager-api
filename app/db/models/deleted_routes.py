@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 class DeletedRoute(SQLModel, table=True):
-    __tablename__ = "Deleted_Routes"
+    __tablename__ = "deleted_routes"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     to: Optional[str] = Field(default=None, index=True)

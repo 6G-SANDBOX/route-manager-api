@@ -19,3 +19,9 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "uvloop>=0.21.0",           # Faster than Python's default asyncio event loop
 ]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "httpx"
+]
