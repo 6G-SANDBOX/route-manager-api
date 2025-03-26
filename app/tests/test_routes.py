@@ -1,14 +1,8 @@
-from fastapi.testclient import TestClient
-from app.main import app
 from app.core.config import settings
-from app.schemas.routes import Route
 from datetime import datetime, timedelta, timezone
 
-client = TestClient(app)
-
-def test_get_routes():
-    token = settings.APITOKEN
-    response = client.get("/routes", headers={"Authorization": f"Bearer {token}"})
+def test_get_routes(client, auth_header):
+    response = client.get("/routes", headers=auth_header)
 
     print("RESPONSE JSON:", response.json())
 
@@ -16,11 +10,9 @@ def test_get_routes():
 
     data = response.json()
 
-    # Verify that both keys exist
     assert "database_routes" in data
     assert "system_routes" in data
 
-    # Check that they are ready
     assert isinstance(data["database_routes"], list)
     assert isinstance(data["system_routes"], list)
 
@@ -37,7 +29,7 @@ def test_get_routes():
         ]
     }
 
-    assert response.json() == expected_response
+    assert data == expected_response
 
 
 def test_put_route(client, auth_header):

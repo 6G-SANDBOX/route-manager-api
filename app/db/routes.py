@@ -3,7 +3,7 @@ import logging
 import json
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.db.database import engine
+from app.db.database import get_engine
 from app.db.models.routes import DBRoute
 from app.db.models.deleted_routes import DeletedRoute
 from app.schemas.routes import Route
@@ -19,7 +19,7 @@ def get_routes_from_database() -> list[dict]:
     """
     logger.info("Fetching routes from database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
     # inner context calls session.commit(), if there were no exceptions
     # outer context calls session.close()
         db_routes = session.exec(select(DBRoute)).all()
@@ -48,7 +48,7 @@ def add_route_to_database(route: Route, active: bool, status: str) -> bool:
         bool: True if the route was added successfully, False otherwise.
     """
     logger.info("Adding route to database...")
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         db_route = DBRoute(
             to=str(route.to),
             via=str(route.via) if route.via else None,
@@ -75,7 +75,7 @@ def delete_route_from_database(to: str,  status: str) -> bool:
         bool: True if the route was active in the system, False otherwise.
     """
     logger.info("Deleting route from database...")
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         statement = select(DBRoute).where(DBRoute.to == to)
         db_route = session.exec(statement).one()
 
@@ -101,7 +101,7 @@ def activate_route_in_database(to: str) -> bool:
     """
     logger.info(f"Activating route {to} in the database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         statement = select(DBRoute).where(DBRoute.to == to)
         db_route = session.exec(statement).one_or_none()
 
@@ -129,7 +129,7 @@ def deactivate_route_in_database(to: str) -> bool:
     """
     logger.info(f"Deactivating route {to} in the database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         statement = select(DBRoute).where(DBRoute.to == to)
         db_route = session.exec(statement).one_or_none()
 
@@ -158,7 +158,7 @@ def update_route_status(to: str, new_status: str) -> bool:
     """
     logger.info(f"Updating status of route {to} to '{new_status}' in the database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         statement = select(DBRoute).where(DBRoute.to == to)
         db_route = session.exec(statement).one_or_none()
 
@@ -189,7 +189,7 @@ def update_route_in_database(to: str, route_update: Route) -> bool:
     """
     logger.info(f"Updating route {to} in the database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         statement = select(DBRoute).where(DBRoute.to == to)
         db_route = session.exec(statement).one_or_none()
 
@@ -238,7 +238,7 @@ def store_deleted_route_in_database(route: DBRoute, status: str) -> None:
     )
 
     try:
-        with Session(engine) as session, session.begin():
+        with Session(get_engine()) as session, session.begin():
             session.add(deleted_route)
             logger.info(f"Route {deleted_route.to} successfully added to Deleted_Routes with status '{status}'")
     except Exception as e:
@@ -255,7 +255,7 @@ def get_deleted_routes_from_database() -> list[dict]:
     """
     logger.info("Fetching deleted routes from database...")
 
-    with Session(engine) as session, session.begin():
+    with Session(get_engine()) as session, session.begin():
         deleted_routes = session.exec(select(DeletedRoute)).all()
 
         serialized_routes: list[dict] = []
