@@ -419,6 +419,35 @@ FastAPI automatically generates interactive API documentation accessible at:
 - **Redoc:** [http://localhost:8172/redoc](http://localhost:8172/redoc)
 
 
+## Testing
+
+This project includes a comprehensive suite of unit and integration tests to ensure the correctness and stability of the Route Manager API. It tests all major features — including route scheduling, state transitions, database operations, and endpoint behavior.
+
+### Test Structure
+
+All tests are organized by feature under the `app/tests/` directory:
+
+
+### Test Configuration
+Test configuration is managed from the file test/routes/conftest.py where the temporary database is created to manage them.
+
+- Uses in-memory SQLite (`sqlite:///file::memory:?cache=shared`) for isolated and fast execution.
+- The database engine is overridden in `conftest.py` to avoid touching production data.
+- The `route_manager_loop` background task is executed during tests inside a separate `asyncio` event loop running in a daemon thread. This allows lifecycle behavior (like automatic activation or expiration of routes) to be tested realistically.
+- Authentication is simulated using the `auth_header` fixture with a static token.
+- Each test runs inside a clean state: the database tables are dropped and recreated before every test.
+
+> Some lifecycle-related tests rely on `time.sleep()` to allow the background task to process route timestamps (e.g. `create_at`, `delete_at`). These may take a few seconds to complete.
+
+### Running the Tests
+
+Run all tests with:
+
+```bash
+uv run pytest -s
+
+
+
 ## Logging
 
 The application logs detailed information about its operations and errors using Python's standard `logging` module. Logs include:
