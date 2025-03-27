@@ -17,7 +17,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
   - [Route Lifecycle](#route-lifecycle)
   - [Usage Examples with `curl`](#usage-examples-with-curl)
 - [API Documentation](#api-documentation)
-- [Testing] (#testing)
+- [Testing](#testing)
 - [Logging](#logging)
 - [Future development](#future-development)
 - [Security Considerations](#security-considerations)
@@ -72,7 +72,16 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
 │   │   └── utils.py               # Miscellaneous utility functions
 │   ├── tests/                 # (Not yet implemented) Contains test modules
 │   │   ├── __init__.py
-│   │   └─── test_routes.py        # (Not yet implemented) Tests for the Routes module
+│   │   ├── routes
+│   │   │   ├── conftes.py     # configuration to run the test 
+│   │   │   ├── test_delete.py     # testing de deleting endpoint
+│   │   │   ├── test_get.py        # testing the get endpoint
+│   │   │   ├── test_loop.py       # testing de lifecycle loop
+│   │   │   ├── test_patch.py      # tenting the patch endpoint
+│   │   │   ├── test_pause.py      # testing the pause endpoint
+│   │   │   └── test_put.py        # testing the put endpoint   
+│   │   └─── utils
+│   │       └──  test_utils.py     # util function for use in test
 │   ├── __init__.py
 │   └── main.py                # Initializes the FastAPI application.
 ├── app_flow.drawio        # Visual representation of the API endpoints and expected behaviour of the app
