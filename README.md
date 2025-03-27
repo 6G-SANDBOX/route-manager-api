@@ -17,7 +17,7 @@ A REST API developed with FastAPI for managing network routes on a Linux machine
   - [Route Lifecycle](#route-lifecycle)
   - [Usage Examples with `curl`](#usage-examples-with-curl)
 - [API Documentation](#api-documentation)
--  [Testing] (#testing)
+- [Testing] (#testing)
 - [Logging](#logging)
 - [Future development](#future-development)
 - [Security Considerations](#security-considerations)
