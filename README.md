@@ -450,9 +450,12 @@ Test configuration is managed from the file test/routes/conftest.py where the te
 > Some lifecycle-related tests rely on `time.sleep()` to allow the background task to process route timestamps (e.g. `create_at`, `delete_at`). These may take a few seconds to complete.
 
 ### Running the Tests
+Before running the tests, you must install the development mode dependencies.
+```bash
+uv pip install .[dev]
+```
 
 Run all tests with:
-
 ```bash
 uv run pytest -s
 ```
