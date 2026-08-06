@@ -37,7 +37,7 @@ def load_database_routes_to_system() -> None:
             except subprocess.CalledProcessError as e:
                 if "RTNETLINK answers: File exists" in e.stderr.strip():
                     logger.warning(f"Route from database to {route["to"]} already existed in the system")
-                    return
+                    continue
                 raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
 
 
