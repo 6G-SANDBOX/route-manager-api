@@ -78,12 +78,20 @@ def routes_put(route: Route) -> dict[str, str]:
             add_route_to_database(route, active=True, status="active")
         except subprocess.CalledProcessError as e:
             if "RTNETLINK answers: File exists" in e.stderr.strip():
+                try:
+                    add_route_to_database(route, active=True, status="active")
+                except IntegrityError:
+                    pass
                 return JSONResponse(
                     content={"message": f"A route to {route.to} already exists in the system"},
                     status_code=200
                 )
             raise HTTPException(status_code=500, detail=f"{e.stderr.strip()}")
-    
+        except IntegrityError:
+            raise HTTPException(status_code=409, detail=f"A route to {route.to} already exists in the database.")
+        except SQLAlchemyError as e:
+            raise HTTPException(status_code=500, detail=f"Database error while adding route: {str(e)}")
+
     elif route.delete_at and route.delete_at < now:
         try:
             add_route_to_database(route, active=False, status="expired")
